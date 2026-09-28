@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparador de Precios de Tomate - SIPSA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+
+<body class="bg-zinc-950 text-zinc-100 min-h-screen p-4 md:p-6 font-sans">
+    <div class="max-w-7xl mx-auto space-y-5">
+
+        <header class="flex flex-wrap justify-between items-center gap-3 border-b border-zinc-800 pb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-emerald-400">🍅 Mi finca de tomate</h1>
+                <p class="text-xs text-zinc-400">Precios reales del DANE, costos de la finca y asistente de IA en un solo lugar.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="lblFrescura" class="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300">Cargando…</span>
+                <button id="btnActualizar"
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-3 rounded-lg">
+                    <span id="iconBtn">🔄</span> <span id="textBtn">Actualizar DANE</span>
+                </button>
+            </div>
+        </header>
+        <nav id="tabs" class="flex gap-1 overflow-x-auto border-b border-zinc-800 text-sm">
+            <button data-tab="hoy" class="tabbtn">🏠 Hoy</button>
+            <button data-tab="ventas" class="tabbtn">📈 Ventas</button>
+            <button data-tab="finca" class="tabbtn">🏭 Finca</button>
+            <button data-tab="registros" class="tabbtn">✍️ Registros</button>
+            <button data-tab="balance" class="tabbtn">💰 Balance</button>
+            <button data-tab="insumos" class="tabbtn">🧪 Insumos</button>
+            <button data-tab="siembra" class="tabbtn">🌱 Siembra</button>
+            <button data-tab="alertas" class="tabbtn">🔔 Alertas <span id="badgeAlertas" class="hidden ml-1 text-[10px] bg-rose-600 text-white rounded-full px-1.5"></span></button>
+        </nav>
+
+        <div id="tab-hoy" class="tab space-y-5"></div>
+        <div id="tab-finca" class="tab space-y-5 hidden"></div>
+        <div id="tab-registros" class="tab space-y-5 hidden"></div>
+        <div id="tab-balance" class="tab space-y-5 hidden"></div>
+        <div id="tab-insumos" class="tab space-y-5 hidden"></div>
+        <div id="tab-siembra" class="tab space-y-5 hidden"></div>
+        <div id="tab-alertas" class="tab space-y-5 hidden"></div>
+
+        <div id="tab-ventas" class="tab space-y-5 hidden">
+        <section id="semaforoBox" class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-md font-semibold">🚦 Antes de cargar el carro</h2>
+                <div class="text-xs text-zinc-400 flex items-center gap-2">Kg a cargar
+                    <input type="number" id="sfKg" value="1500" class="w-24 bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1 text-blue-400 font-bold"></div>
+            </div>
+            <div id="sfVeredicto" class="text-sm text-zinc-200"></div>
+            <div id="sfCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+            <p class="text-[11px] text-zinc-500">Usa el precio promedio de los últimos 7 días y tu costo por kg. Verde: margen &ge; 15% del costo. Amarillo: positivo pero justo. Rojo: pierdes dinero.</p>
+        </section>
+
+
+        <!-- Filtros -->
+        <section class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-4">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Desde</label>
+                    <input type="date" id="fDesde" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Hasta</label>
+                    <input type="date" id="fHasta" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Variedad</label>
+                    <select id="fVariedad" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-2 text-sm"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Presentación</label>
+                    <select id="fPresentacion" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-2 text-sm"></select>
+                </div>
+                <div class="flex flex-col justify-end gap-1 text-xs text-zinc-400">
+                    <label><input type="checkbox" id="fAtipicos"> Incluir datos atípicos (<span id="lblAtipicos">0</span>)</label>
+                    <label><input type="checkbox" id="fMinorista"> Incluir plazas minoristas</label>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+                <span class="text-zinc-400 self-center">Rango rápido:</span>
+                <button class="rango bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded" data-dias="30">30 días</button>
+                <button class="rango bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded" data-dias="90">90 días</button>
+                <button class="rango bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded" data-dias="180">6 meses</button>
+                <button class="rango bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded" data-dias="365">1 año</button>
+                <button class="rango bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded" data-dias="0">Todo</button>
+                <span class="text-zinc-400 self-center ml-4">Mercados:</span>
+                <button id="preFav" class="bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded">Cali + Bogotá + Neiva</button>
+                <button id="preTodos" class="bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded">Todos</button>
+                <button id="preNinguno" class="bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded">Ninguno</button>
+            </div>
+            <div id="listaMercados" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 text-xs max-h-48 overflow-y-auto border border-zinc-800 rounded-lg p-2"></div>
+        </section>
+
+        <!-- Costos -->
+        <section class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Costo de producción ($/kg)</label>
+                    <input type="number" id="cFinca" value="1800" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-emerald-400 font-bold">
+                    <label class="text-[11px] text-zinc-400 flex items-center gap-1 mt-1"><input type="checkbox" id="chkReal" checked> Usar costo real de mi finca</label>
+                    <div id="lblReal" class="text-[11px] text-zinc-500"></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Merma esperada (%)</label>
+                    <input type="number" id="cMerma" value="1" step="0.5" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-rose-400 font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Kg por viaje</label>
+                    <input type="number" id="cKg" value="1500" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-blue-400 font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Flete por defecto ($/kg)</label>
+                    <input type="number" id="cFleteDef" value="680" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-amber-400 font-bold">
+                </div>
+            </div>
+            <div class="mt-3">
+                <p class="text-xs text-zinc-400 mb-1">Flete Garzón → destino ($/kg). Ajústalo por ciudad; el margen y el "mejor mercado"
+                    dependen de esto:</p>
+                <div id="fletes" class="flex flex-wrap gap-3 text-xs"></div>
+            </div>
+            <p class="text-[11px] text-zinc-500 mt-2">Margen $/kg = precio mayorista × (1 − merma) − costo de producción − flete de esa ciudad.
+                Los precios SIPSA son mayoristas del mercado, no un precio pactado con un comprador.</p>
+        </section>
+
+        <!-- Precio local Garzón -->
+        <section class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-md font-semibold">📍 Mi precio de venta en Garzón</h2>
+                <label class="text-xs text-zinc-400"><input type="checkbox" id="fLocal" checked> Mostrar en la comparación</label>
+            </div>
+            <p class="text-[11px] text-zinc-500">SIPSA no tiene mercado en Garzón. Registra a cuánto vendes ($/kg, ya sin flete) y se compara contra los demás mercados.</p>
+            <div class="flex flex-wrap gap-2 items-end">
+                <input type="date" id="lFecha" class="bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-2 text-sm">
+                <input type="number" id="lPrecio" placeholder="$/kg" class="w-32 bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm">
+                <button id="btnLocal" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-lg">Guardar</button>
+                <span id="lMsg" class="text-xs text-zinc-400"></span>
+            </div>
+            <div id="lRelacion" class="text-xs text-emerald-300"></div>
+        </section>
+
+        <div id="alerta" class="hidden text-sm bg-amber-950/60 border border-amber-700/50 text-amber-300 rounded-lg px-4 py-2"></div>
+
+        <!-- Resumen por mercado -->
+        <section class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 overflow-x-auto">
+            <h2 class="text-md font-semibold mb-2">Resumen por mercado en el rango</h2>
+            <table class="w-full text-xs text-left" id="tablaResumen"></table>
+        </section>
+
+        <!-- Gráfico -->
+        <section class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <h2 class="text-md font-semibold">Comparativo diario</h2>
+                <select id="fMetrica" class="bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1 text-xs">
+                    <option value="precio">Precio mayorista ($/kg)</option>
+                    <option value="margen">Margen neto ($/kg)</option>
+                </select>
+            </div>
+            <div id="leyenda" class="flex flex-wrap gap-3 text-xs"></div>
+            <div id="chartContainer" class="w-full h-[420px] rounded-lg overflow-hidden"></div>
+            <p class="text-[11px] text-zinc-500">Los días sin dato no se rellenan: el gráfico une los puntos existentes. La tabla siguiente muestra qué días faltan.</p>
+        </section>
+
+        <!-- Tabla diaria -->
+        <section class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <h2 class="text-md font-semibold mb-2">Tabla diaria (mejor mercado del día resaltado)</h2>
+            <div class="overflow-auto max-h-[480px]">
+                <table class="w-full text-xs text-right" id="tablaDiaria"></table>
+            </div>
+        </section>
+
+        <!-- Auditoría -->
+        <section class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <button id="btnDetalle" class="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded">Ver filas originales del boletín (auditoría)</button>
+            <div id="detalleWrap" class="hidden mt-3 overflow-auto max-h-[420px]">
+                <table class="w-full text-[11px] text-right" id="tablaDetalle"></table>
+            </div>
+        </section>
+        </div>
+    </div>
+
+    <script>
+        const COLORES = ['#34d399', '#60a5fa', '#fbbf24', '#f472b6', '#a78bfa', '#fb923c', '#2dd4bf', '#f87171',
+            '#a3e635', '#38bdf8', '#e879f9', '#facc15'];
+        const FAV = ['Cali', 'Bogotá', 'Neiva'];
+        const $ = id => document.getElementById(id);
+        const fmt = n => n == null ? '–' : '$' + Math.round(n).toLocaleString('es-CO');
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        let meta = null, chart = null, series = {}, lineaCosto = null;
+        let datos = [];   // [{fecha, mercado, ciudad, precio_kg, ...}]
+        let seleccion = new Set();
+        let fletes = {};
+
+        function guardarPrefs() {
+            try {
+                localStorage.setItem('tomatePrefs', JSON.stringify({
+                    finca: $('cFinca').value, merma: $('cMerma').value, kg: $('cKg').value,
+                    fleteDef: $('cFleteDef').value, fletes, seleccion: [...seleccion]
+                }));
+            } catch (e) { }
+        }
+        function cargarPrefs() {
+            try {
+                const p = JSON.parse(localStorage.getItem('tomatePrefs') || 'null');
+                if (!p) return null;
+                $('cFinca').value = p.finca; $('cMerma').value = p.merma; $('cKg').value = p.kg;
+                $('cFleteDef').value = p.fleteDef; fletes = p.fletes || {};
+                return p;
+            } catch (e) { return null; }
+        }
+
+        function isoHoy(offsetDias = 0, base = null) {
+            const d = base ? new Date(base + 'T00:00:00') : new Date();
+            d.setDate(d.getDate() + offsetDias);
+            return d.toISOString().slice(0, 10);
+        }
+
+        function paramsFiltro() {
+            const p = new URLSearchParams();
+            p.set('desde', $('fDesde').value); p.set('hasta', $('fHasta').value);
+            p.set('variedad', $('fVariedad').value);
+            if ($('fPresentacion').value) p.set('presentacion', $('fPresentacion').value);
+            p.set('mercados', [...seleccion].join('|'));
+            if ($('fAtipicos').checked) p.set('atipicos', '1');
+            if ($('fMinorista').checked) p.set('minorista', '1');
+            return p;
+        }
+
+        function flete(ciudad) {
+            const v = parseFloat(fletes[ciudad]);
+            return isNaN(v) ? (ciudad === 'Garzón' ? 0 : (parseFloat($('cFleteDef').value) || 0)) : v;
+        }
+        function margen(precio, ciudad) {
+            const merma = (parseFloat($('cMerma').value) || 0) / 100;
+            return precio * (1 - merma) - (parseFloat($('cFinca').value) || 0) - flete(ciudad);
+        }
+
+        function pintarMercados() {
+            const porCiudad = {};
+            meta.mercados.forEach(m => (porCiudad[m.ciudad] ||= []).push(m));
+            $('listaMercados').innerHTML = Object.entries(porCiudad).map(([c, ms]) =>
+                ms.map(m => `<label class="flex items-center gap-1 ${m.minorista ? 'text-zinc-500' : ''}">
+                    <input type="checkbox" class="chkMercado" value="${esc(m.mercado)}" ${seleccion.has(m.mercado) ? 'checked' : ''}>
+                    <span>${esc(m.mercado)} <span class="text-zinc-500">(${m.dias} días, últ. ${m.ultimo})</span></span></label>`).join('')
+            ).join('');
+            document.querySelectorAll('.chkMercado').forEach(cb => cb.addEventListener('change', () => {
+                cb.checked ? seleccion.add(cb.value) : seleccion.delete(cb.value);
+                guardarPrefs(); recargar();
+            }));
+        }
+
+        function pintarFletes() {
+            const ciudades = [...new Set(datos.map(d => d.ciudad))].sort();
+            $('fletes').innerHTML = ciudades.map(c => `<label class="flex items-center gap-1">${esc(c)}
+                <input type="number" data-ciudad="${esc(c)}" value="${fletes[c] ?? ''}" placeholder="${flete(c)}"
+                class="inpFlete w-24 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-amber-400"></label>`).join('')
+                || '<span class="text-zinc-500">Selecciona mercados.</span>';
+            document.querySelectorAll('.inpFlete').forEach(i => i.addEventListener('input', () => {
+                if (i.value === '') delete fletes[i.dataset.ciudad]; else fletes[i.dataset.ciudad] = i.value;
+                guardarPrefs(); render();
+            }));
+        }
+
+        function diasEntre(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000) + 1; }
+
+        function render() {
+            const mercados = [...new Set(datos.map(d => d.mercado))].sort();
+            const cityOf = Object.fromEntries(datos.map(d => [d.mercado, d.ciudad]));
+            const metrica = $('fMetrica').value;
+            const valor = d => metrica === 'margen' ? margen(d.precio_kg, d.ciudad) : d.precio_kg;
+
+            // Leyenda y series
+            mercados.forEach((m, i) => { if (!series[m]) series[m] = { color: COLORES[i % COLORES.length] }; });
+            const color = Object.fromEntries(mercados.map((m, i) => [m, COLORES[i % COLORES.length]]));
+            $('leyenda').innerHTML = mercados.map(m => `<span class="flex items-center gap-1" style="color:${color[m]}">
+                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${color[m]}"></span>${esc(m)}</span>`).join('');
+
+            if (chart) { chart.remove(); }
+            chart = LightweightCharts.createChart($('chartContainer'), {
+                layout: { background: { type: 'solid', color: '#18181b' }, textColor: '#a1a1aa' },
+                grid: { vertLines: { color: '#27272a' }, horzLines: { color: '#27272a' } },
+                timeScale: { borderColor: '#27272a' },
+            });
+            let primera = null;
+            mercados.forEach(m => {
+                const s = chart.addLineSeries({ color: color[m], lineWidth: 2, title: m.split(',')[0] });
+                s.setData(datos.filter(d => d.mercado === m).map(d => ({ time: d.fecha, value: Math.round(valor(d) * 100) / 100 })));
+                primera ||= s;
+            });
+            if (primera && metrica === 'margen') {
+                primera.createPriceLine({ price: 0, color: '#f43f5e', lineWidth: 2, lineStyle: 2, title: 'Punto de equilibrio' });
+            }
+            chart.timeScale().fitContent();
+
+            // Resumen por mercado
+            const dRango = diasEntre($('fDesde').value, $('fHasta').value);
+            const kg = parseFloat($('cKg').value) || 0;
+            const filasRes = mercados.map(m => {
+                const ds = datos.filter(d => d.mercado === m);
+                const ps = ds.map(d => d.precio_kg);
+                const prom = ps.reduce((a, b) => a + b, 0) / ps.length;
+                const ult = ds[ds.length - 1];
+                const mg = margen(prom, cityOf[m]);
+                return { m, dias: ds.length, prom, min: Math.min(...ds.map(d => d.kg_min)), max: Math.max(...ds.map(d => d.kg_max)), ult, mg, viaje: mg * kg };
+            }).sort((a, b) => b.mg - a.mg);
+            $('tablaResumen').innerHTML = `<thead class="text-zinc-400"><tr>
+                <th class="py-1">Mercado</th><th>Días con dato</th><th>Precio prom.</th><th>Mín</th><th>Máx</th><th>Último (fecha)</th>
+                <th>Flete</th><th>Margen prom. $/kg</th><th>Utilidad/viaje</th></tr></thead><tbody>` +
+                filasRes.map((r, i) => `<tr class="border-t border-zinc-800 ${i === 0 ? 'text-emerald-300 font-semibold' : ''}">
+                <td class="py-1">${esc(r.m)}</td><td>${r.dias}/${dRango}</td><td>${fmt(r.prom)}</td><td>${fmt(r.min)}</td>
+                <td>${fmt(r.max)}</td><td>${fmt(r.ult.precio_kg)} (${r.ult.fecha})</td><td>${fmt(flete(cityOf[r.m]))}</td>
+                <td>${fmt(r.mg)}</td><td>${fmt(r.viaje)}</td></tr>`).join('') + '</tbody>';
+
+            // Tabla diaria
+            const fechas = [...new Set(datos.map(d => d.fecha))].sort().reverse();
+            const idx = {}; datos.forEach(d => idx[d.fecha + '|' + d.mercado] = d);
+            let html = `<thead class="text-zinc-400 sticky top-0 bg-zinc-900"><tr><th class="text-left py-1">Fecha</th>` +
+                mercados.map(m => `<th title="${esc(m)}">${esc(m.split(',')[0])}<br><span class="text-[10px]">${esc(m.split(',').slice(1).join(',').trim())}</span></th>`).join('') +
+                `<th>Mejor mercado</th></tr></thead><tbody>`;
+            fechas.forEach(f => {
+                let mejor = null;
+                mercados.forEach(m => {
+                    const d = idx[f + '|' + m];
+                    if (d && (!mejor || margen(d.precio_kg, d.ciudad) > margen(mejor.precio_kg, mejor.ciudad))) mejor = d;
+                });
+                html += `<tr class="border-t border-zinc-800"><td class="text-left py-1">${f}</td>` + mercados.map(m => {
+                    const d = idx[f + '|' + m];
+                    if (!d) return '<td class="text-zinc-700">–</td>';
+                    const v = valor(d);
+                    return `<td class="${mejor && d.mercado === mejor.mercado ? 'bg-emerald-900/50 text-emerald-300 font-semibold' : ''}">${fmt(v)}</td>`;
+                }).join('') + `<td class="text-emerald-300">${mejor ? esc(mejor.mercado.split(',')[0]) + ' ' + fmt(margen(mejor.precio_kg, mejor.ciudad)) : '–'}</td></tr>`;
+            });
+            $('tablaDiaria').innerHTML = html + '</tbody>';
+        }
+
+        async function sumarLocal() {
+            $('lRelacion').textContent = '';
+            if (!$('fLocal').checked) return;
+            const loc = await (await fetch(`/api/local?desde=${$('fDesde').value}&hasta=${$('fHasta').value}`)).json();
+            loc.forEach(r => datos.push({ fecha: r.fecha, mercado: 'Garzón (mi precio)', ciudad: 'Garzón', precio_kg: r.precio_kg, kg_min: r.precio_kg, kg_max: r.precio_kg, n_presentaciones: 1 }));
+            datos.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
+            const neiva = {}; datos.filter(d => d.ciudad === 'Neiva').forEach(d => neiva[d.fecha] = d.precio_kg);
+            const pares = loc.filter(r => neiva[r.fecha]);
+            if (pares.length >= 3) {
+                const rel = pares.reduce((s, r) => s + r.precio_kg / neiva[r.fecha], 0) / pares.length;
+                $('lRelacion').textContent = `Tu precio en Garzón equivale en promedio al ${(rel * 100).toFixed(0)}% del de Neiva (${pares.length} días en común).`;
+            }
+        }
+
+        async function recargar() {
+            if (!seleccion.size) { datos = []; $('tablaResumen').innerHTML = ''; $('tablaDiaria').innerHTML = ''; if (chart) { chart.remove(); chart = null; } $('leyenda').innerHTML = ''; pintarFletes(); return; }
+            const res = await fetch('/api/comparar?' + paramsFiltro());
+            datos = await res.json();
+            await sumarLocal();
+            const alerta = $('alerta');
+            if (!datos.length) { alerta.textContent = 'No hay datos para esta combinación de filtros.'; alerta.classList.remove('hidden'); } else alerta.classList.add('hidden');
+            pintarFletes(); render();
+            if (!$('detalleWrap').classList.contains('hidden')) cargarDetalle();
+        }
+
+        async function cargarDetalle() {
+            const filas = await (await fetch('/api/detalle?' + paramsFiltro())).json();
+            $('tablaDetalle').innerHTML = `<thead class="text-zinc-400 sticky top-0 bg-zinc-900"><tr><th class="text-left">Fecha</th>
+                <th class="text-left">Mercado</th><th>Presentación</th><th>Peso kg</th><th>R1 mín</th><th>R1 máx</th><th>R2 mín</th><th>R2 máx</th><th>$/kg prom.</th><th>Atípico</th></tr></thead><tbody>` +
+                filas.map(f => `<tr class="border-t border-zinc-800"><td class="text-left">${f.fecha}</td><td class="text-left">${esc(f.mercado)}</td>
+                <td>${esc(f.presentacion)}</td><td>${f.peso_kg}</td><td>${f.r1_min}</td><td>${f.r1_max}</td><td>${f.r2_min}</td><td>${f.r2_max}</td>
+                <td>${fmt(f.precio_kg)}</td><td>${f.atipico ? '⚠️' : ''}</td></tr>`).join('') + '</tbody>';
+        }
+
+        function pintarFrescura() {
+            const l = $('lblFrescura');
+            const viejo = meta.rezago_dias > 4;
+            l.textContent = `Último dato: ${meta.hasta} (${meta.rezago_dias} d) · ${meta.registros.toLocaleString('es-CO')} registros`;
+            l.className = 'text-xs px-3 py-1.5 rounded-lg border ' + (viejo ? 'border-amber-600 text-amber-300' : 'border-emerald-700 text-emerald-300');
+        }
+
+        async function init() {
+            meta = await (await fetch('/api/meta')).json();
+            if (meta.vacio) { $('lblFrescura').textContent = 'Base vacía: ejecuta "python sipsa.py reconstruir"'; return; }
+            pintarFrescura();
+            $('lblAtipicos').textContent = meta.atipicos;
+            $('fVariedad').innerHTML = meta.variedades.map(v => `<option value="${esc(v.producto)}" ${v.producto === 'Tomate chonto' ? 'selected' : ''}>${esc(v.producto)} (${v.n})</option>`).join('');
+            $('fPresentacion').innerHTML = '<option value="">Todas (promedio $/kg)</option>' + meta.presentaciones.map(p => `<option value="${esc(p.presentacion)}">${esc(p.presentacion)}</option>`).join('');
+            $('fHasta').value = meta.hasta; $('fDesde').value = isoHoy(-90, meta.hasta);
+            $('fDesde').min = $('fHasta').min = meta.desde; $('fDesde').max = $('fHasta').max = meta.hasta;
+
+            const prefs = cargarPrefs();
+            const validos = new Set(meta.mercados.map(m => m.mercado));
+            seleccion = new Set((prefs?.seleccion || []).filter(m => validos.has(m)));
+            if (!seleccion.size) meta.mercados.filter(m => FAV.includes(m.ciudad) && !m.minorista).forEach(m => seleccion.add(m.mercado));
+            pintarMercados();
+
+            ['fDesde', 'fHasta', 'fVariedad', 'fPresentacion', 'fAtipicos', 'fMinorista'].forEach(id => $(id).addEventListener('change', recargar));
+            ['cFinca', 'cMerma', 'cKg', 'cFleteDef'].forEach(id => $(id).addEventListener('input', () => { guardarPrefs(); render(); }));
+            $('fMetrica').addEventListener('change', render);
+            $('fLocal').addEventListener('change', recargar);
+            $('lFecha').value = meta.hasta;
+            $('btnLocal').onclick = async () => {
+                const r = await fetch('/api/local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fecha: $('lFecha').value, precio_kg: $('lPrecio').value }) });
+                const j = await r.json();
+                $('lMsg').textContent = r.ok ? '✅ Guardado' : '⚠️ ' + j.error;
+                if (r.ok) { $('lPrecio').value = ''; recargar(); }
+            };
+            document.querySelectorAll('.rango').forEach(b => b.addEventListener('click', () => {
+                const d = +b.dataset.dias; $('fHasta').value = meta.hasta;
+                $('fDesde').value = d ? isoHoy(-d, meta.hasta) : meta.desde; recargar();
+            }));
+            $('preFav').onclick = () => { seleccion = new Set(meta.mercados.filter(m => FAV.includes(m.ciudad) && !m.minorista).map(m => m.mercado)); pintarMercados(); guardarPrefs(); recargar(); };
+            $('preTodos').onclick = () => { seleccion = new Set(meta.mercados.filter(m => !m.minorista || $('fMinorista').checked).map(m => m.mercado)); pintarMercados(); guardarPrefs(); recargar(); };
+            $('preNinguno').onclick = () => { seleccion = new Set(); pintarMercados(); guardarPrefs(); recargar(); };
+            $('btnDetalle').onclick = () => { $('detalleWrap').classList.toggle('hidden'); if (!$('detalleWrap').classList.contains('hidden')) cargarDetalle(); };
+            $('btnActualizar').onclick = async () => {
+                $('iconBtn').classList.add('animate-spin'); $('textBtn').textContent = 'Descargando DANE...';
+                try {
+                    const r = await fetch('/api/actualizar_dane', { method: 'POST' });
+                    const j = await r.json();
+                    alert((r.ok ? '✅ ' : '⚠️ ') + j.mensaje);
+                    if (r.ok) { await init(); }
+                } catch (e) { alert('⚠️ Sin conexión con el servidor o con el DANE.'); }
+                finally { $('iconBtn').classList.remove('animate-spin'); $('textBtn').textContent = 'Actualizar DANE'; }
+            };
+            window.addEventListener('resize', () => chart && chart.applyOptions({ width: $('chartContainer').clientWidth }));
+            await recargar();
+        }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <button id="fab" class="fixed bottom-5 right-5 z-40 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full px-5 py-3 shadow-lg">🤖 Asistente</button>
+    <aside id="drawer" class="fixed top-0 right-0 h-full w-full sm:w-[420px] z-50 bg-zinc-900 border-l border-zinc-700 translate-x-full transition-transform flex flex-col">
+        <div class="flex items-center justify-between p-3 border-b border-zinc-800">
+            <div><div class="font-semibold text-emerald-400">🤖 Asistente de la finca</div><div id="chatUso" class="text-[10px] text-zinc-500"></div></div>
+            <button id="btnCerrarChat" class="text-zinc-400 hover:text-white text-xl px-2">✕</button>
+        </div>
+        <div class="flex gap-1 p-2 text-xs border-b border-zinc-800">
+            <button id="modoPreguntar" class="flex-1 rounded py-1.5">💬 Preguntar</button>
+            <button id="modoRegistrar" class="flex-1 rounded py-1.5">📝 Registrar (texto o foto)</button>
+        </div>
+        <div id="chatMsgs" class="flex-1 overflow-y-auto p-3 space-y-3 text-sm"></div>
+        <div id="chips" class="px-3 pb-2 flex flex-wrap gap-1.5 text-[11px]"></div>
+        <div class="p-3 border-t border-zinc-800 space-y-2">
+            <div id="fotoPrev" class="hidden text-[11px] text-emerald-300"></div>
+            <div class="flex gap-2 items-end">
+                <button id="btnFoto" title="Adjuntar foto" class="hidden bg-zinc-800 hover:bg-zinc-700 rounded-lg px-3 py-2">📷</button>
+                <input type="file" id="fileFoto" accept="image/*" class="hidden">
+                <textarea id="chatInput" rows="2" maxlength="600" class="flex-1 bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+                <button id="btnEnviar" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-lg">Enviar</button>
+            </div>
+        </div>
+    </aside>
+    <style>
+        .tabbtn { padding: .55rem .9rem; white-space: nowrap; color: #a1a1aa; border-bottom: 2px solid transparent; }
+        .tabbtn:hover { color: #fff; }
+        .tabbtn.on { color: #34d399; border-color: #34d399; font-weight: 600; }
+        .card { background: #18181b; border: 1px solid #27272a; border-radius: .75rem; padding: 1rem; }
+        .inp { background: #09090b; border: 1px solid #3f3f46; border-radius: .5rem; padding: .4rem .6rem; font-size: .8rem; color: #f4f4f5; }
+        .btn { background: #059669; color: #fff; font-size: .75rem; font-weight: 700; padding: .5rem .8rem; border-radius: .5rem; }
+        .btn:hover { background: #10b981; }
+        .btn2 { background: #27272a; color: #e4e4e7; font-size: .75rem; padding: .4rem .7rem; border-radius: .5rem; }
+        .btn2:hover { background: #3f3f46; }
+        .tbl { width: 100%; font-size: .75rem; text-align: right; } .tbl th { color: #a1a1aa; font-weight: 500; padding: .25rem .4rem; }
+        .tbl td { padding: .25rem .4rem; border-top: 1px solid #27272a; } .tbl td:first-child, .tbl th:first-child { text-align: left; }
+        .chip { background: #27272a; border-radius: 9999px; padding: .3rem .7rem; } .chip:hover { background: #3f3f46; }
+        .lbl { display: block; font-size: .7rem; color: #a1a1aa; margin-bottom: .15rem; }
+    </style>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

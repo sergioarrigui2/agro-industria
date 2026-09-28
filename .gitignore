@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+*.db
+pdf_cache/
+briefing_cache.json
+uso_ia.json
+obsoleto/
