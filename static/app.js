@@ -32,7 +32,7 @@ async function cargarDatos() { FD = await api('/api/finca/datos'); }
 const lotesActivos = () => FD.lotes.filter(l => l.estado === 'activo');
 
 /* ---------- navegación ---------- */
-const TABS = ['hoy', 'ventas', 'finca', 'registros', 'balance', 'insumos', 'siembra', 'alertas'];
+const TABS = ['hoy', 'ventas', 'prediccion', 'finca', 'registros', 'balance', 'insumos', 'siembra', 'alertas'];
 const RENDER = {};
 function mostrar(tab) {
     if (!TABS.includes(tab)) tab = 'hoy';

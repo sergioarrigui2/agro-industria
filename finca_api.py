@@ -4,6 +4,7 @@ import agente
 import analisis
 import asistente
 import finca
+import pronostico
 
 bp = Blueprint("finca_api", __name__, url_prefix="/api")
 
@@ -161,3 +162,24 @@ def confirmar():
         except (ValueError, KeyError, TypeError) as e:
             errores.append(f"Registro {i + 1}: {e}")
     return jsonify({"guardados": guardados, "errores": errores})
+
+
+@bp.route("/prediccion", methods=["POST"])
+def prediccion():
+    d = _json()
+    return jsonify(pronostico.generar(d.get("variedad") or "Tomate chonto", _costos()))
+
+
+@bp.route("/prediccion/historial")
+def prediccion_historial():
+    return jsonify(pronostico.historial(request.args.get("limite", 40, type=int)))
+
+
+@bp.route("/prediccion/juicio", methods=["POST"])
+def prediccion_juicio():
+    d = _json()
+    try:
+        pronostico.juicio(d.get("id"), d.get("juicio"), d.get("nota", ""), d.get("real"))
+        return jsonify({"ok": True})
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": str(e)}), 400

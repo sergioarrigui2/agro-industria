@@ -28,6 +28,7 @@
         <nav id="tabs" class="flex gap-1 overflow-x-auto border-b border-zinc-800 text-sm">
             <button data-tab="hoy" class="tabbtn">🏠 Hoy</button>
             <button data-tab="ventas" class="tabbtn">📈 Ventas</button>
+            <button data-tab="prediccion" class="tabbtn">🔮 Predicción</button>
             <button data-tab="finca" class="tabbtn">🏭 Finca</button>
             <button data-tab="registros" class="tabbtn">✍️ Registros</button>
             <button data-tab="balance" class="tabbtn">💰 Balance</button>
@@ -37,6 +38,7 @@
         </nav>
 
         <div id="tab-hoy" class="tab space-y-5"></div>
+        <div id="tab-prediccion" class="tab space-y-5 hidden"></div>
         <div id="tab-finca" class="tab space-y-5 hidden"></div>
         <div id="tab-registros" class="tab space-y-5 hidden"></div>
         <div id="tab-balance" class="tab space-y-5 hidden"></div>
@@ -478,6 +480,7 @@
         .lbl { display: block; font-size: .7rem; color: #a1a1aa; margin-bottom: .15rem; }
     </style>
     <script src="/static/app.js"></script>
+    <script src="/static/prediccion.js"></script>
 </body>
 
 </html>
