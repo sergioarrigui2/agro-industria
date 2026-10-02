@@ -36,7 +36,7 @@ def costos_efectivos(costos):
 
 
 # ---------- Semáforo antes de cargar ----------
-def semaforo(costos, kg=None, variedad="Tomate chonto", dias=7):
+def semaforo(costos, kg=None, variedad="Tomate chonto", dias=7, mercados=None):
     costos = costos_efectivos(costos)
     kg = float(kg or costos.get("kg") or 1500)
     hasta = _ultima_fecha()
@@ -44,6 +44,8 @@ def semaforo(costos, kg=None, variedad="Tomate chonto", dias=7):
     filas = agente._serie(variedad, (h - timedelta(days=dias)).isoformat(), hasta)
     por = {}
     for f in filas:
+        if mercados and f["mercado"] not in mercados:
+            continue
         por.setdefault(f["mercado"], []).append(f)
     finca_kg = costos["finca"]
     out = []

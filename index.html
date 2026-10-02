@@ -141,6 +141,7 @@
                 <span id="lMsg" class="text-xs text-zinc-400"></span>
             </div>
             <div id="lRelacion" class="text-xs text-emerald-300"></div>
+            <div id="lLista" class="flex flex-wrap gap-1.5 text-[11px]"></div>
         </section>
 
         <div id="alerta" class="hidden text-sm bg-amber-950/60 border border-amber-700/50 text-amber-300 rounded-lg px-4 py-2"></div>
@@ -188,6 +189,7 @@
             '#a3e635', '#38bdf8', '#e879f9', '#facc15'];
         const FAV = ['Cali', 'Bogotá', 'Neiva'];
         const $ = id => document.getElementById(id);
+        const HOY = (() => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); })();
         const fmt = n => n == null ? '–' : '$' + Math.round(n).toLocaleString('es-CO');
         const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -345,11 +347,19 @@
             loc.forEach(r => datos.push({ fecha: r.fecha, mercado: 'Garzón (mi precio)', ciudad: 'Garzón', precio_kg: r.precio_kg, kg_min: r.precio_kg, kg_max: r.precio_kg, n_presentaciones: 1 }));
             datos.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
             const neiva = {}; datos.filter(d => d.ciudad === 'Neiva').forEach(d => neiva[d.fecha] = d.precio_kg);
+            $('lLista').innerHTML = loc.slice(-8).reverse().map(r => `<span class="bg-zinc-800 rounded px-2 py-1">${r.fecha} · ${fmt(r.precio_kg)} <button class="text-emerald-400 ml-1" onclick="corregirLocal('${r.fecha}',${r.precio_kg})">editar</button> <button class="text-rose-400 ml-1" onclick="borrarLocal('${r.fecha}')">borrar</button></span>`).join('') + (loc.length ? '<span class="text-zinc-500 self-center">Para corregir, guarda de nuevo la misma fecha con el precio correcto.</span>' : '');
             const pares = loc.filter(r => neiva[r.fecha]);
             if (pares.length >= 3) {
                 const rel = pares.reduce((s, r) => s + r.precio_kg / neiva[r.fecha], 0) / pares.length;
                 $('lRelacion').textContent = `Tu precio en Garzón equivale en promedio al ${(rel * 100).toFixed(0)}% del de Neiva (${pares.length} días en común).`;
             }
+        }
+
+        function corregirLocal(f, p) { $('lFecha').value = f; $('lPrecio').value = p; $('lPrecio').focus(); }
+        async function borrarLocal(f) {
+            if (!confirm('¿Borrar el precio de Garzón del ' + f + '? Si vino de una venta registrada, bórrala también en Registros > Ventas.')) return;
+            await fetch('/api/local', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fecha: f }) });
+            recargar();
         }
 
         async function recargar() {
@@ -386,8 +396,8 @@
             $('lblAtipicos').textContent = meta.atipicos;
             $('fVariedad').innerHTML = meta.variedades.map(v => `<option value="${esc(v.producto)}" ${v.producto === 'Tomate chonto' ? 'selected' : ''}>${esc(v.producto)} (${v.n})</option>`).join('');
             $('fPresentacion').innerHTML = '<option value="">Todas (promedio $/kg)</option>' + meta.presentaciones.map(p => `<option value="${esc(p.presentacion)}">${esc(p.presentacion)}</option>`).join('');
-            $('fHasta').value = meta.hasta; $('fDesde').value = isoHoy(-90, meta.hasta);
-            $('fDesde').min = $('fHasta').min = meta.desde; $('fDesde').max = $('fHasta').max = meta.hasta;
+            $('fHasta').value = HOY; $('fDesde').value = isoHoy(-90, HOY);
+            $('fDesde').min = $('fHasta').min = meta.desde; $('fDesde').max = $('fHasta').max = HOY;
 
             const prefs = cargarPrefs();
             const validos = new Set(meta.mercados.map(m => m.mercado));
@@ -399,7 +409,7 @@
             ['cFinca', 'cMerma', 'cKg', 'cFleteDef'].forEach(id => $(id).addEventListener('input', () => { guardarPrefs(); render(); }));
             $('fMetrica').addEventListener('change', render);
             $('fLocal').addEventListener('change', recargar);
-            $('lFecha').value = meta.hasta;
+            $('lFecha').value = HOY; $('lFecha').max = HOY;
             $('btnLocal').onclick = async () => {
                 const r = await fetch('/api/local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fecha: $('lFecha').value, precio_kg: $('lPrecio').value }) });
                 const j = await r.json();
@@ -407,8 +417,8 @@
                 if (r.ok) { $('lPrecio').value = ''; recargar(); }
             };
             document.querySelectorAll('.rango').forEach(b => b.addEventListener('click', () => {
-                const d = +b.dataset.dias; $('fHasta').value = meta.hasta;
-                $('fDesde').value = d ? isoHoy(-d, meta.hasta) : meta.desde; recargar();
+                const d = +b.dataset.dias; $('fHasta').value = HOY;
+                $('fDesde').value = d ? isoHoy(-d, HOY) : meta.desde; recargar();
             }));
             $('preFav').onclick = () => { seleccion = new Set(meta.mercados.filter(m => FAV.includes(m.ciudad) && !m.minorista).map(m => m.mercado)); pintarMercados(); guardarPrefs(); recargar(); };
             $('preTodos').onclick = () => { seleccion = new Set(meta.mercados.filter(m => !m.minorista || $('fMinorista').checked).map(m => m.mercado)); pintarMercados(); guardarPrefs(); recargar(); };

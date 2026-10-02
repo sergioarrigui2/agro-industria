@@ -65,7 +65,7 @@ function cargarSemaforo() {
     _sfT = setTimeout(async () => {
         if ($('tab-ventas').classList.contains('hidden')) return;
         try {
-            const s = await api('/api/semaforo', { costos: costosApp(), kg: $('sfKg').value });
+            const s = await api('/api/semaforo', { costos: costosApp(), kg: $('sfKg').value, mercados: [...seleccion] });
             $('sfVeredicto').innerHTML = `${esc(s.veredicto || '')} <span class="text-zinc-500 text-xs">Costo ${fmt(s.costo_kg)}/kg (${s.origen_costo === 'real' ? 'real de tu finca' : 'estimado manual'}).</span>`;
             const col = { verde: 'border-emerald-600 bg-emerald-950/40', amarillo: 'border-amber-600 bg-amber-950/30', rojo: 'border-rose-600 bg-rose-950/30' };
             const ico = { verde: '🟢', amarillo: '🟡', rojo: '🔴' };
@@ -83,21 +83,24 @@ $('sfKg').addEventListener('input', cargarSemaforo);
 $('chkReal').addEventListener('change', aplicarCostoReal);
 
 /* ---------- gráficos SVG simples ---------- */
-function barras(vals, etiquetas, { alto = 110, base = 1, resaltar = null } = {}) {
-    const w = 100 / vals.length, max = Math.max(...vals.filter(v => v != null), base * 1.25), min = Math.min(...vals.filter(v => v != null), base * 0.75);
-    const y = v => alto - (v - min) / (max - min) * (alto - 14) - 2;
-    return `<svg viewBox="0 0 100 ${alto + 14}" preserveAspectRatio="none" class="w-full" style="height:${alto + 30}px">
-        <line x1="0" x2="100" y1="${y(base)}" y2="${y(base)}" stroke="#52525b" stroke-dasharray="1.5" stroke-width=".3"/>` +
-        vals.map((v, i) => v == null ? '' : `<rect x="${i * w + w * .12}" width="${w * .76}" y="${Math.min(y(v), y(base))}" height="${Math.abs(y(v) - y(base)) + .4}" fill="${v >= base ? '#34d399' : '#fb7185'}" opacity="${resaltar === i ? 1 : .8}"/>
-        <text x="${i * w + w / 2}" y="${alto + 10}" font-size="3.2" text-anchor="middle" fill="#a1a1aa">${etiquetas[i]}</text>`).join('') + '</svg>';
+function barras(vals, etiquetas, { alto = 150, base = 1 } = {}) {
+    const W = 640, pad = 22, n = vals.length, w = W / n, ok = vals.filter(v => v != null);
+    const max = Math.max(...ok, base * 1.1), min = Math.min(...ok, base * 0.9);
+    const y = v => 8 + (max - v) / (max - min) * (alto - 16);
+    return `<svg viewBox="0 0 ${W} ${alto + pad}" class="w-full h-auto" style="max-width:760px">
+        <line x1="0" x2="${W}" y1="${y(base)}" y2="${y(base)}" stroke="#52525b" stroke-dasharray="4 4"/>
+        <text x="2" y="${y(base) - 3}" font-size="10" fill="#71717a">promedio</text>` +
+        vals.map((v, i) => v == null ? '' : `<rect x="${i * w + w * .15}" width="${w * .7}" y="${Math.min(y(v), y(base))}" height="${Math.max(1, Math.abs(y(v) - y(base)))}" rx="2" fill="${v >= base ? '#34d399' : '#fb7185'}" opacity=".85"/>
+        <text x="${i * w + w / 2}" y="${(v >= base ? y(v) - 3 : y(v) + 11)}" font-size="10" text-anchor="middle" fill="#d4d4d8">${((v - 1) * 100 >= 0 ? '+' : '') + ((v - 1) * 100).toFixed(0)}%</text>
+        <text x="${i * w + w / 2}" y="${alto + 14}" font-size="11" text-anchor="middle" fill="#a1a1aa">${etiquetas[i]}</text>`).join('') + '</svg>';
 }
-function linea(pts, { alto = 120, color = '#34d399', marcas = [] } = {}) {
+function linea(pts, { alto = 140, color = '#34d399', marcas = [] } = {}) {
     if (pts.length < 2) return '';
-    const xs = pts.map(p => p.x), ys = pts.map(p => p.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const X = x => (x - x0) / (x1 - x0 || 1) * 100, Y = y => alto - (y - y0) / (y1 - y0 || 1) * (alto - 8) - 4;
-    return `<svg viewBox="0 0 100 ${alto}" preserveAspectRatio="none" class="w-full" style="height:${alto}px">
-        <polyline fill="none" stroke="${color}" stroke-width=".7" vector-effect="non-scaling-stroke" points="${pts.map(p => `${X(p.x)},${Y(p.y)}`).join(' ')}"/>` +
-        marcas.map(m => `<circle cx="${X(m.x)}" cy="${Y(m.y)}" r="1.3" fill="${m.c || '#fbbf24'}"/>`).join('') + '</svg>';
+    const W = 640, xs = pts.map(p => p.x), ys = pts.map(p => p.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const X = x => 4 + (x - x0) / (x1 - x0 || 1) * (W - 8), Y = y => alto - 8 - (y - y0) / (y1 - y0 || 1) * (alto - 16);
+    return `<svg viewBox="0 0 ${W} ${alto}" class="w-full h-auto" style="max-width:760px">
+        <polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" points="${pts.map(p => `${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(' ')}"/>` +
+        marcas.map(m => `<circle cx="${X(m.x)}" cy="${Y(m.y)}" r="5" fill="${m.c || '#fbbf24'}"/>`).join('') + '</svg>';
 }
 
 /* ---------- HOY ---------- */
@@ -115,7 +118,7 @@ RENDER.hoy = async function () {
             <div id="hoyAlertas"></div>`;
         return pintarAlertasHoy();
     }
-    const h = await api('/api/hoy', { costos: costosApp() });
+    const h = await api('/api/hoy', { costos: costosApp(), mercados: [...seleccion] });
     const k = h.kpis, s = h.semaforo;
     const kg = k.stock_por_vender.reduce((a, x) => a + x.kg, 0);
     const kpi = (t, v, sub, c = '') => `<div class="card"><div class="text-[11px] text-zinc-400">${t}</div><div class="text-2xl font-bold ${c}">${v}</div><div class="text-[11px] text-zinc-500">${sub}</div></div>`;
@@ -345,7 +348,7 @@ RENDER.insumos = async function () {
       ${ins.map(i => { const v = i.var_vs_prom_pct; const cv = v == null ? '' : v >= 10 ? 'text-rose-400' : v <= -10 ? 'text-emerald-400' : '';
         return `<tr><td>${esc(i.nombre)}<div class="text-[10px] text-zinc-500">${esc(i.categoria)} · ${esc(i.unidad)} ${esc(i.contenido || '')}</div></td><td>${i.ultimo_precio_unidad != null ? fmt(i.ultimo_precio_unidad) : '–'}</td><td>${i.prom_unidad != null ? fmt(i.prom_unidad) : '–'}</td><td class="${cv}">${v != null ? (v > 0 ? '+' : '') + v + '%' : '–'}</td><td>${i.precio_por_kg_activo ? fmt(i.precio_por_kg_activo) : '–'}</td><td>${esc(i.proveedor_barato || '–')}</td><td>${i.ultima_fecha || ''}</td>
         <td><button class="btn2" onclick="verHist(${i.id})">Historial</button> <button class="btn2" onclick="borrarReg('insumos',${i.id},'Se borra todo su historial.')">🗑</button></td></tr>
-        <tr id="h${i.id}" class="hidden"><td colspan="8" class="text-left">${linea(i.historial.slice().reverse().map((h, k) => ({ x: k, y: h.precio_unidad })), { alto: 60 })}
+        <tr id="h${i.id}" class="hidden"><td colspan="8" class="text-left">${linea(i.historial.slice().reverse().map((h, k) => ({ x: k, y: h.precio_unidad })), { alto: 90 })}
         ${i.historial.map(h => `<span class="text-[11px] text-zinc-400 mr-3">${h.fecha} · ${fmt(h.precio_unidad)}/${esc(i.unidad)} · ${esc(h.proveedor || 's/prov.')}</span>`).join('')}</td></tr>`; }).join('') || '<tr><td colspan="8" class="text-zinc-500">Registra los precios que consigues: con 3 o más datos por insumo el sistema empieza a avisarte cuándo comprar.</td></tr>'}</tbody></table></div>`;
     $('btnIns').onclick = () => guardar('insumo_precios', leer($('fIns')), () => RENDER.insumos());
 };
@@ -365,7 +368,7 @@ RENDER.siembra = async function () {
       <div class="flex flex-wrap gap-3 items-end text-xs pt-2">${campo('Días trasplante → 1ª cosecha', `<input type="number" id="sDC" class="inp w-28" value="${dc}">`)}${campo('Duración de la cosecha (días)', `<input type="number" id="sDD" class="inp w-28" value="${dd}">`)}<button class="btn2" id="btnCiclo">Recalcular</button></div>
       <p class="text-[11px] text-zinc-500">${esc(c.nota)}</p></div>
     <div class="card space-y-1"><h3 class="font-semibold text-sm">Precio típico de la cosecha según fecha de siembra (próximos 365 días)</h3>
-      ${linea(c.curva.map((p, i) => ({ x: i, y: p.indice })), { alto: 110, marcas: c.mejores.map(m => ({ x: c.curva.findIndex(p => p.siembra === m.siembra), y: m.indice })) })}
+      ${linea(c.curva.map((p, i) => ({ x: i, y: p.indice })), { alto: 150, marcas: c.mejores.map(m => ({ x: c.curva.findIndex(p => p.siembra === m.siembra), y: m.indice })) })}
       <div class="flex justify-between text-[10px] text-zinc-500"><span>${c.curva[0].siembra}</span><span>${c.curva[182].siembra}</span><span>${c.curva[364].siembra}</span></div></div>
     <div class="card space-y-1"><h3 class="font-semibold text-sm">Estacionalidad mensual del precio (Cali, Bogotá, Neiva)</h3>
       ${barras(e.meses.map(m => m.indice), MESES, { base: 1 })}
@@ -374,7 +377,7 @@ RENDER.siembra = async function () {
       <p class="text-xs text-zinc-300">Con ${c.escalonada.length} invernadero(s) y un ciclo de ${c.dias_a_cosecha + c.dias_cosecha} días, sembrar cada ${c.paso_dias} días da un flujo continuo:</p>
       <ul class="text-sm space-y-1">${c.escalonada.map(x => `<li>Invernadero ${x.invernadero}: sembrar hacia <b>${x.siembra}</b></li>`).join('')}</ul>
       <p class="text-[11px] text-zinc-500">Para cubrir 365 días con ciclos de ~${c.dias_a_cosecha + c.dias_cosecha} días necesitas ~${Math.ceil(365 / c.paso_dias) > 0 ? Math.max(1, Math.round((c.dias_a_cosecha + c.dias_cosecha) / 60)) : 1}+ invernaderos con siembras cada ~60 días.</p></div>
-    <div class="card space-y-1"><h3 class="font-semibold text-sm">Precio mensual histórico ($/kg)</h3>${linea(e.serie_mensual.map((p, i) => ({ x: i, y: p.precio })), { alto: 110, color: '#60a5fa' })}
+    <div class="card space-y-1"><h3 class="font-semibold text-sm">Precio mensual histórico ($/kg)</h3>${linea(e.serie_mensual.map((p, i) => ({ x: i, y: p.precio })), { alto: 150, color: '#60a5fa' })}
       <div class="flex justify-between text-[10px] text-zinc-500"><span>${e.serie_mensual[0].mes}</span><span>${e.serie_mensual[e.serie_mensual.length - 1].mes}</span></div></div>`;
     $('btnCiclo').onclick = () => { try { localStorage.setItem('tomateDC', $('sDC').value); localStorage.setItem('tomateDD', $('sDD').value); } catch (e) { } RENDER.siembra(); };
 };
@@ -497,3 +500,5 @@ msg('bot', '¡Hola! Soy tu asistente. Pregúntame por precios, costos, siembra o
     api('/api/alertas').then(pintarBadge).catch(() => { });
 })();
 window.addEventListener('load', () => aplicarCostoReal().catch(() => { }));
+
+{ const _rec = recargar; recargar = async function () { await _rec.apply(this, arguments); cargarSemaforo(); }; }

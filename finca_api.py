@@ -86,7 +86,7 @@ def costo_real():
 @bp.route("/semaforo", methods=["POST"])
 def semaforo():
     d = _json()
-    return jsonify(analisis.semaforo(_costos(), d.get("kg")))
+    return jsonify(analisis.semaforo(_costos(), d.get("kg"), mercados=set(d.get("mercados") or [])))
 
 
 @bp.route("/estacionalidad")
@@ -112,7 +112,7 @@ def alertas():
 @bp.route("/hoy", methods=["POST"])
 def hoy():
     c = _costos()
-    return jsonify({"alertas": analisis.alertas(c), "kpis": analisis.kpis(c), "semaforo": analisis.semaforo(c),
+    return jsonify({"alertas": analisis.alertas(c), "kpis": analisis.kpis(c), "semaforo": analisis.semaforo(c, mercados=set(_json().get("mercados") or [])),
                     "uso": agente.uso_mes()})
 
 
